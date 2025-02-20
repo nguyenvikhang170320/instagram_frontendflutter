@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "instagram-flutter-21fb3",
+  "private_key_id": "3130ddf0be1faca21669bf3568f76607c39516a7",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC4qnj4o9WAUE+w\nSI40rBJqOn55SSgFD+P2xKmbYXppiJFW4p8Lb1O9egOD7pLVjLXQO8zDj1LpmmeJ\nwbkpV04tfQSeSXqNBYT0svH2RuLEnHohZjiTv3BjTusaYWCz60ij1KGp5r+kgiq+\nXYz346rtsJy15W+UD2oixh614cdKWs0z+U2Jj8+fgd9vXBHACQW1qFpLq4UG2Rw0\nTFeJxhdlUIEtnSSzRAt6nbOxtqCzu4JRfsg1Ipr7/BN0OkjxIKIhjI+4T0ByR7u2\n5l4DY1svgxAARbTeqG0cWlOLMbzUIdjSsBgTl7zAoShj7VjovQVEyjhvtrcSA4EY\nxKpTvUB3AgMBAAECggEAIGK5O3XUHCA5kYNv+RnSUvH2O0QSsiySwLTFv/vM8ZQj\nVRcCaIl6KKks06bz9mKqgh3yr7tDgbd0AAtK806d5clelXnydafppNZ7K8NLwspk\netYIBxVUWv48qhA42uThBOZmAbt3kZzIbUFP1yuEzxGhsh7OPiuj4/xV53T0s/vD\nAnh3MzWPSUOcp91QFiJFbV2cv+fjhdjS8lbPQNlvU2a0uexZQglGsyZ7pTu3ILNE\nWvEkBdgTmxmUtdVX3380d/jeI9p4J+WboS2EUjtOL3RjNZBpeUltturVr9O0vEwN\nXdlUMf2pxHMDNb2lZ9DGG2zOWVf7x+tqZHwyse3eDQKBgQDxUzWXk3tWykYdFnuF\nBnn2TiX4QGpyq/2oYHTPEeWQjJYBjAiUSNi61zIfKHxSqFlV/J9RICCW4dCPe27P\nkApOgQYSFvmd82zaTAK77vB2e5ghTS+9xWxedhLZegslwHvSK+rq6wKhv2nqPx/a\n6CWZbWExxEh1Ccvp5VCpqn2L9QKBgQDD5Tsalr5oT1mVyiZHIfJSCyEXBsvhqO3a\n3GOkaCL8od5HLRxZqLHtgDaErCqxuzCz3GJ9VIHd5jlfs5FV989aYhMAF5IbY0CX\neXPo03O4JmyG4lBgZFTs7lJVM2jivVf3CjpeAhuywFaOQXjLSsTtesyVEllUSZAn\ncjTjAE2jOwKBgQCBm80GsYDmphBuAusoEMhkDqi54e7J07GSQuu5YsVGkxrljc31\nxgIQpw8WSOosgpooYls2eOjH4FPhG8vx0kyWyRj3kjtSJ7DotTYqtTOUjuCv0gK4\nC1YejY+mGbPu/KgDwu6SaNGrCWDbHDgBm/jFpEc1MVQw96f64Nwno5d2GQKBgQCx\nA26I9DZSY4F8DRLRrCcfY9cey5Fn9BIadpPDeCZFSq9kearoibtd9UFOWZSqzY+Q\nt1B4F+jR7rthcw2dNTQ1Y/HvX10zSliPh7vpY0lp2a6vo8klkQP8pM3ZF39rg9T8\n8k0TrawBtjOAkEDq0kFoplI/UjlOJLsSKe0IQrnlCQKBgB76rsyC7d4CKw5tsTnR\nxZq9knZw7mhdTfVVu+fAqaFJPl5wftKCVGEyIVYfLV04kk7uAWzGGWtmTJJTFjEe\nb8dV9PnxyUIEJq5RbntizgCmTaGaJpUcZ5z6b23arF5MF4wJ8Jlr+zKEBc5zKFhy\nb9GJWZ/z1P7oISKyzrY+6Vb7\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@instagram-flutter-21fb3.iam.gserviceaccount.com",
+  "client_id": "115208051182858209824",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40instagram-flutter-21fb3.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
