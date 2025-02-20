@@ -1,0 +1,12 @@
+com.example.instagram.app-core-1.6.0-0 C:\Users\TuanKenVlog\.gradle\caches\transforms-3\24cceb931461e77c65cf398d50aa3fc7\transformed\core-1.6.0\res
+com.example.instagram.app-jetified-window-1.0.0-beta04-1 C:\Users\TuanKenVlog\.gradle\caches\transforms-3\4a7f3416b527f6048bbf430e493f4688\transformed\jetified-window-1.0.0-beta04\res
+com.example.instagram.app-jetified-window-java-1.0.0-beta04-2 C:\Users\TuanKenVlog\.gradle\caches\transforms-3\957773986e4756696fdc37edb9471972\transformed\jetified-window-java-1.0.0-beta04\res
+com.example.instagram.app-jetified-annotation-experimental-1.1.0-3 C:\Users\TuanKenVlog\.gradle\caches\transforms-3\98bd9e393cbc08165fade59bab6d14df\transformed\jetified-annotation-experimental-1.1.0\res
+com.example.instagram.app-debug-4 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\android\app\src\debug\res
+com.example.instagram.app-main-5 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\android\app\src\main\res
+com.example.instagram.app-pngs-6 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\build\app\generated\res\pngs\debug
+com.example.instagram.app-resValues-7 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\build\app\generated\res\resValues\debug
+com.example.instagram.app-packageDebugResources-8 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\build\app\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.example.instagram.app-packageDebugResources-9 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\build\app\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.example.instagram.app-debug-10 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\build\app\intermediates\merged_res\debug\mergeDebugResources
+com.example.instagram.app-debug-11 C:\Users\TuanKenVlog\AndroidStudioProjects\flutter\instagram\build\shared_preferences_android\intermediates\packaged_res\debug\packageDebugResources
