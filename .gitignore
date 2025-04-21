@@ -1,0 +1,55 @@
+# Flutter/Dart/Pub related
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+
+# iOS
+ios/Flutter/.last_build_id
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/.generated/
+ios/Runner.xcworkspace/
+
+# Android
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+*.keystore
+
+# Build outputs
+build/
+**/build/
+*.apk
+*.aab
+*.so
+
+# VSCode & IntelliJ
+.idea/
+.vscode/
+*.iml
+
+# Logs & backups
+*.log
+*.tmp
+*.swp
+*.bak
+
+# macOS/Linux/Windows specific
+.DS_Store
+Thumbs.db
+
+# Symbolication / Obfuscation / Mapping
+app.*.symbols
+app.*.map.json
+
+# Firebase / generated configs
+firebase_app_id_file.json

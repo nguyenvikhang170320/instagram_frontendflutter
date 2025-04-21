@@ -1,0 +1,2 @@
+C:/Users/tuankenofficial2025/AndroidStudioProjects/flutter/instagram/android/app/.cxx/Debug/w6n4o446/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/tuankenofficial2025/AndroidStudioProjects/flutter/instagram/android/app/.cxx/Debug/w6n4o446/arm64-v8a/CMakeFiles/rebuild_cache.dir
