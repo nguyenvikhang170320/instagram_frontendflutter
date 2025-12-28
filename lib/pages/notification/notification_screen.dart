@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:instagram/provider/notification_provider.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:provider/provider.dart';
 
 class NotificationScreen extends StatefulWidget {

@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:instagram/pages/watch/chewie_video_player.dart';
 import 'package:instagram/pages/watch/video_item.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 

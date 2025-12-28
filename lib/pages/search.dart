@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:instagram/pages/userprofilescreen.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 
 class SearchScreen extends StatefulWidget {
   final String userId;
@@ -31,6 +31,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
+      if (!mounted) return;
       setState(() {
         users = data;
         filteredUsers = users;

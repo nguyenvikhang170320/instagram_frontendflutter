@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:instagram/pages/chat/chat_details_screen.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String currentUserId;

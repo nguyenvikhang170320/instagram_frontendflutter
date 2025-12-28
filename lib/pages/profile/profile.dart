@@ -15,7 +15,7 @@ import 'package:instagram/pages/story/story_widget.dart';
 import 'package:instagram/services/verification_service.dart';
 import 'package:instagram/pages/watch/video_item.dart';
 import 'package:instagram/pages/watch/video_player_preview.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:mime/mime.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -135,27 +135,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   //load ảnh đã lưu
+  //load ảnh đã lưu
   Future<List<String>> getSavedPosts(String userId) async {
     try {
+      // 1. 👇 LẤY TOKEN (Thêm dòng này)
+      String? token = await getToken();
+
+      if (token == null) {
+        print("⚠️ Chưa có Token, không thể lấy bài viết đã lưu.");
+        return [];
+      }
+
       final response = await http.get(
-        Uri.parse("${dotenv.env['BASE_URL']}/saved-posts/$userId"),
+        Uri.parse("${dotenv.env['BASE_URL']}/saved-posts/"), // Đường dẫn đúng
+        // 2. 👇 THÊM HEADER (Bắt buộc phải có cái này)
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
       );
 
-      print("📡 API Response: ${response.body}"); // Kiểm tra dữ liệu API trả về
+      print("📡 API Response Saved Posts: ${response.body}");
 
       if (response.statusCode == 200) {
         final dynamic decodedData = jsonDecode(response.body);
 
         if (decodedData is List) {
-          print(
-              "🎥 Đã load ${List<String>.from(decodedData.map((post) => post['imageUrl']))} ảnh đã lưu");
+          print("🎥 Đã load ${decodedData.length} ảnh đã lưu");
           return List<String>.from(decodedData.map((post) => post['imageUrl']));
         } else {
-          print("⚠️ API không trả về danh sách hợp lệ: ${response.body}");
           return [];
         }
       } else {
-        print("❌ Lỗi API: ${response.statusCode} - ${response.body}");
+        print("❌ Lỗi API Saved Posts: ${response.statusCode} - ${response.body}");
         return [];
       }
     } catch (e) {

@@ -3,7 +3,7 @@ import 'package:instagram/model/chat_model.dart';
 import 'package:instagram/pages/chat/chat_details_screen.dart';
 import 'package:instagram/pages/chat/chat_tile.dart';
 import 'package:instagram/services/chat_service.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 
 class ChatListScreen extends StatefulWidget {
   final String currentUserId;

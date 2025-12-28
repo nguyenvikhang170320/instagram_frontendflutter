@@ -11,9 +11,10 @@ import 'package:instagram/pages/notification/notification_screen.dart';
 import 'package:instagram/pages/story/story_widget.dart';
 import 'package:instagram/provider/feed_provider.dart';
 import 'package:instagram/provider/notification_provider.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:provider/provider.dart';
 import 'package:instagram/pages/home/posthome_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FeedScreen extends StatefulWidget {
   final String userId;
@@ -76,32 +77,46 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> fetchSavedPosts() async {
-    String? userId = await getUserId();
-    if (userId == null) return;
+    // 1. Lấy Token (Bắt buộc để Backend biết ai đang gọi)
+    String? token = await getToken();
 
-    final response = await http.get(
-      Uri.parse("${dotenv.env['BASE_URL']}/saved-posts/$userId"),
-    );
+    if (token == null) {
+      print("⚠️ Chưa có Token, không thể lấy bài đã lưu.");
+      return;
+    }
 
-    print("📡 API Response: ${response.body}"); // In ra để kiểm tra dữ liệu
+    print("🟢 Calling API: ${dotenv.env['BASE_URL']}/saved-posts");
 
-    if (response.statusCode == 200) {
-      try {
+    try {
+      final response = await http.get(
+        // ✅ URL ĐÚNG: Không cần /$userId ở cuối vì backend tự lấy từ token
+        Uri.parse("${dotenv.env['BASE_URL']}/saved-posts"),
+        headers: {
+          "Content-Type": "application/json",
+          // ✅ HEADER QUAN TRỌNG: Backend dùng cái này để tìm req.user.uid
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      print("📡 API Response Status: ${response.statusCode}");
+
+      if (response.statusCode == 200) {
         final dynamic decodedData = jsonDecode(response.body);
-        print("🧐 Dữ liệu data đã lưu ảnh: $decodedData");
 
         if (decodedData is List) {
           setState(() {
+            // Lưu vào Map để check nhanh: savedPosts['postId123'] = true
             savedPosts = {for (var post in decodedData) post['postId']: true};
           });
+          print("✅ Đã load ${decodedData.length} bài viết đã lưu.");
         } else {
-          print("⚠️ Dữ liệu không phải List, kiểm tra lại API!");
+          print("⚠️ API trả về không phải List: $decodedData");
         }
-      } catch (e) {
-        print("❌ Lỗi parse JSON: $e");
+      } else {
+        print("❌ Lỗi API (${response.statusCode}): ${response.body}");
       }
-    } else {
-      print("⚠️ Lỗi khi lấy danh sách bài viết đã lưu");
+    } catch (e) {
+      print("❌ Lỗi kết nối: $e");
     }
   }
 

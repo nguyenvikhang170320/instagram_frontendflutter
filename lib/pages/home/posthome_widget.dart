@@ -6,7 +6,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:instagram/pages/comment/comment.dart';
 import 'package:instagram/pages/report/report_modal.dart';
 import 'package:instagram/pages/report/report_service.dart';
-import 'package:instagram/sharepreference/auth_service.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:toasty_box/toast_enums.dart';
