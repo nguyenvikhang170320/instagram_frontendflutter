@@ -3,6 +3,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:instagram/provider/feed_provider.dart';
 import 'package:instagram/provider/notification_provider.dart';
+import 'package:instagram/provider/profile_provider.dart';
+import 'package:instagram/provider/search_provider.dart';
+import 'package:instagram/provider/verification_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
@@ -61,6 +64,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => FeedProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => VerificationProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
         // 1. Auth (Quan trọng nhất)
         ChangeNotifierProvider(create: (_) => AuthProvider()),
 
@@ -77,6 +82,9 @@ class MyApp extends StatelessWidget {
 
         // 4. Chat
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        // 5. Profile
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
+
 
         // ❌ Đã BỎ NotificationProvider theo yêu cầu của bạn (chỉ dùng Service)
       ],

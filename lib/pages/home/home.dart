@@ -1,168 +1,56 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:instagram/model/story_model.dart';
-import 'package:instagram/pages/chat/chat_list_screen.dart';
-import 'package:instagram/pages/notification/notification_screen.dart';
-import 'package:instagram/pages/story/story_widget.dart';
+import 'package:provider/provider.dart';
+
 import 'package:instagram/provider/feed_provider.dart';
+import 'package:instagram/provider/like_provider.dart';
+import 'package:instagram/provider/post_provider.dart';
 import 'package:instagram/provider/notification_provider.dart';
 import 'package:instagram/sharepreference/sharepre.dart';
-import 'package:provider/provider.dart';
+
 import 'package:instagram/pages/home/posthome_widget.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:instagram/pages/notification/notification_screen.dart';
+import 'package:instagram/pages/chat/chat_list_screen.dart';
+import 'package:instagram/pages/story/story_widget.dart';
+
+import '../../provider/save_provider.dart';
 
 class FeedScreen extends StatefulWidget {
   final String userId;
-  FeedScreen({required this.userId});
+  const FeedScreen({super.key, required this.userId});
 
   @override
-  _FeedScreenState createState() => _FeedScreenState();
+  State<FeedScreen> createState() => _FeedScreenState();
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-  List<dynamic> posts = [];
-  Map<String, bool> savedPosts = {}; // Lưu trạng thái isSave của từng bài viết
-  Map<String, bool> likedPosts = {}; // Lưu trạng thái like của từng bài viết
-  List<Story> stories = []; // Danh sách Story
-  bool isLoading = true;
+  final Map<String, bool> savedPosts = {}; // tạm giữ local như bạn đang làm
   String currentUserId = "";
-  String currentUserAvatar = "";
-  List<Story> _stories = [];
-  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
 
-    Future.microtask(() {
-      final feedProvider = Provider.of<FeedProvider>(context, listen: false);
-      feedProvider.fetchFeed(); // Gọi API lấy danh sách bài viết
-      fetchLikedPosts(); // Gọi API lấy trạng thái like
-      fetchSavedPosts(); // Gọi API lấy trạng thái đã lưu
-      loadUserData();
-      _fetchStories();
-      // _loadUserIdAndFetchNotifications();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final uid = await getUserId();
+      if (!mounted || uid == null) return;
+
+      setState(() => currentUserId = uid);
+
+      // Feed chung (following feed)
+      await context.read<FeedProvider>().fetchFeed(uid);
+
+      // Like state
+      await context.read<LikeProvider>().fetchLikedPosts(uid);
+
+      //comment,save
+      context.read<SaveProvider>().fetchSavedPosts();
+      context.read<LikeProvider>().fetchLikedPosts(uid);
+
+      // Notifications
+      await context.read<NotificationProvider>().fetchNotifications();
     });
   }
 
-  void _loadUserIdAndFetchNotifications() async {
-    String? userId = await getUserId(); // Lấy userId từ SharedPreferences
-
-    if (userId != null) {
-      Provider.of<NotificationProvider>(context, listen: false)
-          .fetchNotifications(userId);
-    }
-  }
-
-  Future<void> fetchLikedPosts() async {
-    String? userId = await getUserId();
-    if (userId == null) return;
-
-    final response = await http.get(
-      Uri.parse("${dotenv.env['BASE_URL']}/likes/user/$userId"),
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      setState(() {
-        likedPosts = {for (var post in data) post['postId']: true};
-      });
-    } else {
-      print("⚠️ Lỗi khi lấy danh sách bài viết đã like");
-    }
-  }
-
-  Future<void> fetchSavedPosts() async {
-    // 1. Lấy Token (Bắt buộc để Backend biết ai đang gọi)
-    String? token = await getToken();
-
-    if (token == null) {
-      print("⚠️ Chưa có Token, không thể lấy bài đã lưu.");
-      return;
-    }
-
-    print("🟢 Calling API: ${dotenv.env['BASE_URL']}/saved-posts");
-
-    try {
-      final response = await http.get(
-        // ✅ URL ĐÚNG: Không cần /$userId ở cuối vì backend tự lấy từ token
-        Uri.parse("${dotenv.env['BASE_URL']}/saved-posts"),
-        headers: {
-          "Content-Type": "application/json",
-          // ✅ HEADER QUAN TRỌNG: Backend dùng cái này để tìm req.user.uid
-          "Authorization": "Bearer $token",
-        },
-      );
-
-      print("📡 API Response Status: ${response.statusCode}");
-
-      if (response.statusCode == 200) {
-        final dynamic decodedData = jsonDecode(response.body);
-
-        if (decodedData is List) {
-          setState(() {
-            // Lưu vào Map để check nhanh: savedPosts['postId123'] = true
-            savedPosts = {for (var post in decodedData) post['postId']: true};
-          });
-          print("✅ Đã load ${decodedData.length} bài viết đã lưu.");
-        } else {
-          print("⚠️ API trả về không phải List: $decodedData");
-        }
-      } else {
-        print("❌ Lỗi API (${response.statusCode}): ${response.body}");
-      }
-    } catch (e) {
-      print("❌ Lỗi kết nối: $e");
-    }
-  }
-
-  // Lấy userId từ SharedPreferences và avatar từ Firestore
-  Future<void> loadUserData() async {
-    String? userId = await getUserId();
-
-    if (userId != null) {
-      setState(() {
-        currentUserId = userId;
-      });
-
-      // Truy vấn Firestore để lấy avatar
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      if (userDoc.exists) {
-        if (mounted) {
-          setState(() {
-            currentUserAvatar =
-                userDoc['avatar'] ?? ""; // Avatar mặc định nếu không có
-          });
-        }
-      }
-    }
-  }
-
-  Future<void> _fetchStories() async {
-    try {
-      final response =
-          await http.get(Uri.parse("${dotenv.env['BASE_URL']}/stories/list"));
-      if (response.statusCode == 200) {
-        List<dynamic> jsonData = jsonDecode(response.body);
-        setState(() {
-          _stories = jsonData.map((data) => Story.fromJson(data)).toList();
-          _isLoading = false;
-        });
-      } else {
-        print("⚠️ Lỗi tải stories: ${response.statusCode}");
-      }
-    } catch (error) {
-      print("❌ Lỗi khi tải stories: $error");
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,39 +58,37 @@ class _FeedScreenState extends State<FeedScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: Text("Instagram CLO",
+        title: const Text("Instagram TK",
             style: TextStyle(fontFamily: 'Billabong', fontSize: 32)),
         centerTitle: false,
         actions: [
           Consumer<NotificationProvider>(
-            builder: (context, notificationProvider, child) {
+            builder: (context, noti, child) {
               return Stack(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.notifications),
-                    onPressed: () async {
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (context) => NotificationScreen()),
+                        MaterialPageRoute(builder: (_) =>  NotificationScreen()),
                       );
-                      String? userId = await getUserId();
-                      notificationProvider.markAllAsRead(userId!);
                     },
                   ),
-                  if (notificationProvider.unreadCount > 0)
+
+                  if (noti.unreadCount > 0)
                     Positioned(
                       right: 5,
                       top: 5,
                       child: Container(
-                        padding: EdgeInsets.all(5),
-                        decoration: BoxDecoration(
+                        padding: const EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
                           color: Colors.red,
                           shape: BoxShape.circle,
                         ),
                         child: Text(
-                          "${notificationProvider.unreadCount}",
-                          style: TextStyle(
+                          "${noti.unreadCount}",
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -220,8 +106,7 @@ class _FeedScreenState extends State<FeedScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      ChatListScreen(currentUserId: currentUserId),
+                  builder: (_) => ChatListScreen(currentUserId: currentUserId),
                 ),
               );
             },
@@ -230,52 +115,28 @@ class _FeedScreenState extends State<FeedScreen> {
       ),
       body: Column(
         children: [
-          // Khu vực Story
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else
-            StoryWidget(),
+          // Story: tạm giữ widget bạn đang có
+           StoryWidget(),
 
           Expanded(
             child: Consumer<FeedProvider>(
               builder: (context, feedProvider, child) {
                 if (feedProvider.isLoading) {
-                  return Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 }
                 if (feedProvider.posts.isEmpty) {
-                  return Center(child: Text("Không có bài viết nào"));
+                  return const Center(child: Text("Không có bài viết nào"));
                 }
+
                 return ListView.builder(
                   itemCount: feedProvider.posts.length,
                   itemBuilder: (context, index) {
                     final post = feedProvider.posts[index];
-                    print("Trạng thái provider: $post");
                     final postId = post['postId'];
-                    // bool isSaved = savedPosts.containsKey(postId)
-                    //     ? savedPosts[postId]!
-                    //     : false;
+                    print("Id ảnh:"+postId);
 
-                    // print("Trạng thái đã lưu ảnh: $isSaved");
+                    return PostWidget(post: post);
 
-                    return PostWidget(
-                      post: post,
-                      isSave: savedPosts.containsKey(postId)
-                          ? savedPosts[postId]!
-                          : false,
-                      isLiked: likedPosts.containsKey(postId)
-                          ? likedPosts[postId]!
-                          : false, // Truyền trạng thái like
-                      onLikeChanged: (bool newValue) async {
-                        setState(() {
-                          likedPosts[postId] = newValue;
-                        });
-                      },
-                      onSaveChanged: (bool newValueSave) async {
-                        setState(() {
-                          savedPosts[postId] = newValueSave;
-                        });
-                      },
-                    );
                   },
                 );
               },

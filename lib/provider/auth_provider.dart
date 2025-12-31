@@ -4,6 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:instagram/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../sharepreference/sharepre.dart';
+
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -11,6 +13,8 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  String? _error;
+  String? get error => _error;
   // --- ĐĂNG KÝ ---
   Future<bool> register({
     required String email,
@@ -41,46 +45,98 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // --- ĐĂNG NHẬP ---
-  // --- ĐĂNG NHẬP ---
   Future<bool> login(String email, String password) async {
     _isLoading = true;
+    _error = null;
     notifyListeners();
 
     try {
       final data = await _authService.login(email, password);
 
-      if (data['success'] == true) {
-        String token = data['token'];
-        String userId = data['userId'];
-
-        // 1. Lưu Token và UserId vào bộ nhớ (Code cũ)
-        await _storage.write(key: "auth_token", value: token);
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("userId", userId);
-        await prefs.setString("token", token);
-
-        // 👇 2. BƯỚC QUAN TRỌNG: Đăng nhập vào Firebase SDK 👇
-        try {
-          print("🔄 Đang xác thực Firebase SDK với token...");
-          await FirebaseAuth.instance.signInWithCustomToken(token);
-          print("✅ Đăng nhập Firebase SDK thành công!");
-        } catch (e) {
-          print("❌ Lỗi đăng nhập Firebase SDK: $e");
-          // Nếu bước này lỗi, Firestore sẽ vẫn bị permission-denied
-        }
-        // ☝️ Hết phần thêm mới ☝️
-
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      } else {
+      if (data['success'] != true) {
         throw Exception(data['message'] ?? "Đăng nhập thất bại");
       }
-    } catch (e) {
+
+      final String customToken = data['token'];
+      final String userId = data['userId'];
+
+      await FirebaseAuth.instance.signInWithCustomToken(customToken);
+
+      final String? idToken =
+      await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (idToken == null) throw Exception("Không lấy được Firebase ID token");
+
+      await saveUserId(userId);
+      await saveIdToken(idToken); // SharedPreferences setString [web:477]
+
       _isLoading = false;
       notifyListeners();
-      print("❌ Lỗi đăng nhập: $e");
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _isLoading = false;
+      _error = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _error = e.toString();
+      notifyListeners();
       return false;
     }
+  }
+
+
+
+
+  // --- QUÊN MẬT KHẨU ---
+  // Backend trả: { message: "...", otp: "123456" } (theo code bạn gửi)
+  Future<String?> forgotPassword({required String email}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners(); // state đổi thì notify [web:61]
+
+    try {
+      final res = await _authService.forgotPassword(email: email);
+      return res['otp']?.toString();
+    } catch (e) {
+      _error = e.toString();
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners(); // state đổi thì notify [web:61]
+    }
+  }
+
+  // --- RESET MẬT KHẨU ---
+  // Backend trả status 200 nếu OK: { message: "..." }
+  Future<bool> resetPassword({
+    required String email,
+    required String newPassword,
+    required String otp,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners(); // [web:61]
+
+    try {
+      await _authService.resetPassword(
+        email: email,
+        newPassword: newPassword,
+        otp: otp,
+      );
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners(); // [web:61]
+    }
+  }
+
+  void clear() {
+    _isLoading = false;
+    _error = null;
+    notifyListeners(); // [web:61]
   }
 }

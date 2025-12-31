@@ -1,90 +1,55 @@
 import 'package:flutter/material.dart';
-import 'package:instagram/provider/feed_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ QUAN TRỌNG: Import cái này
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:instagram/provider/feed_provider.dart';
 
-// 1. Lưu UserId
+class LocalKeys {
+  static const userId = 'userId';
+  static const token = 'token'; // Firebase ID token (Bearer)
+}
+
+/// SAVE
 Future<void> saveUserId(String userId) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  await prefs.setString('userId', userId);
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(LocalKeys.userId, userId);
 }
 
-// 2. Lưu Custom Token (Chỉ dùng để debug hoặc login lại khi cần thiết)
-Future<void> saveToken(String token) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  // Đổi key thành 'custom_token' để phân biệt với ID Token
-  await prefs.setString('custom_token', token);
+Future<void> saveIdToken(String idToken) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(LocalKeys.token, idToken);
 }
 
-// 3. Lấy UserId
+/// GET
 Future<String?> getUserId() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? userId = prefs.getString('userId');
-
-  if (userId == null || userId.isEmpty) {
-    print("⚠️ [Utils] Không tìm thấy userId trong bộ nhớ.");
-    // Nếu app đang chạy mà mất userId, thử lấy từ Firebase Auth
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      print("♻️ [Utils] Fallback: Lấy userId từ Firebase Auth: ${user.uid}");
-      return user.uid;
-    }
-  }
-  return userId;
+  final prefs = await SharedPreferences.getInstance();
+  final userId = prefs.getString(LocalKeys.userId);
+  return (userId == null || userId.isEmpty) ? null : userId;
 }
 
-// 4. Lấy Token (HÀM QUAN TRỌNG NHẤT - ĐÃ SỬA LỖI TYPE)
 Future<String?> getToken() async {
-  User? user = FirebaseAuth.instance.currentUser;
-
-  if (user != null) {
-    try {
-      // ✅ SỬA Ở ĐÂY: Thêm dấu ? sau chữ String
-      String? idToken = await user.getIdToken(true);
-      print("🟢 [FirebaseAuth] Lấy ID Token mới thành công!");
-      return idToken;
-    } catch (e) {
-      print("❌ [FirebaseAuth] Lỗi lấy ID Token: $e");
-    }
-  }
-
-  // ... (Phần lấy từ SharedPreferences giữ nguyên) ...
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? storedToken = prefs.getString('custom_token') ?? prefs.getString('token');
-  print("⚠️ [Utils] Đang dùng Token lưu trữ: $storedToken");
-  return storedToken;
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString(LocalKeys.token);
+  return (token == null || token.isEmpty) ? null : token;
 }
 
-// 5. Đăng xuất (ĐÃ SỬA)
+/// CLEAR (logout)
 Future<void> logout(BuildContext context) async {
-  try {
-    print("🔄 Bắt đầu đăng xuất...");
+  // 1) clear local cache
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove(LocalKeys.userId);
+  await prefs.remove(LocalKeys.token);
 
-    // B1: Xóa dữ liệu SharedPreferences
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    // Hoặc xóa từng cái: await prefs.remove('userId'); await prefs.remove('custom_token');
-    print("✅ Đã xóa SharedPreferences");
+  // 2) sign out firebase (để khỏi auto-login)
+  await FirebaseAuth.instance.signOut(); // signOut là async [web:482]
 
-    // B2: Đăng xuất khỏi Firebase SDK (CỰC KỲ QUAN TRỌNG)
-    // Nếu thiếu dòng này, lần sau mở app lên Firebase vẫn tưởng user đang login
-    await FirebaseAuth.instance.signOut();
-    print("✅ Đã đăng xuất Firebase Auth");
+  // 3) clear providers (tuỳ app bạn)
+  if (context.mounted) {
+    context.read<FeedProvider>().clearFeed();
+  }
 
-    // B3: Reset State của Provider (để tránh hiện dữ liệu cũ)
-    if (context.mounted) {
-      Provider.of<FeedProvider>(context, listen: false).clearFeed();
-      // Nếu có ProfileProvider, NotificationProvider... thì clear luôn ở đây
-    }
-
-    // B4: Chuyển về màn hình Login
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (context.mounted) {
-      // Dùng pushNamedAndRemoveUntil để xóa sạch lịch sử back về home
-      Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
-    }
-  } catch (e) {
-    print("❌ Lỗi khi đăng xuất: $e");
+  // 4) go login
+  if (context.mounted) {
+    Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
   }
 }

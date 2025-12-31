@@ -5,62 +5,121 @@ import 'package:instagram/pages/post/post.dart';
 import 'package:instagram/pages/profile/profile.dart';
 import 'package:instagram/pages/search.dart';
 import 'package:instagram/pages/watch/watch.dart';
+import 'package:provider/provider.dart';
+
+import '../provider/feed_provider.dart';
+import '../provider/follow_provider.dart';
+import '../provider/post_provider.dart';
+import '../provider/verification_provider.dart';
+import '../sharepreference/sharepre.dart';
 
 class BottomNav extends StatefulWidget {
   final String userId;
-  BottomNav({required this.userId});
+  const BottomNav({super.key, required this.userId});
 
   @override
-  _BottomNavState createState() => _BottomNavState();
+  State<BottomNav> createState() => _BottomNavState();
 }
 
 class _BottomNavState extends State<BottomNav> {
   int _selectedIndex = 0;
-  // Mặc định là danh sách người theo dõi (followers)
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+
+  Widget _buildWatch() {
+    return WatchScreen(isActive: _selectedIndex == 3);
+  }
+
+  late List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      FeedScreen(userId: widget.userId),
+      SearchScreen(userId: widget.userId),
+      const SizedBox.shrink(),
+      _buildWatch(), // sẽ được replace ở build()
+      ProfileScreen(userId: widget.userId),
+    ];
+  }
+
+  Future<void> _openUpload() async {
+    final posted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const UploadPostScreen()),
+    );
+
+    if (!mounted) return;
+
+    if (posted == true) {
+      setState(() => _selectedIndex = 0);
+    }
+  }
+
+  void _onItemTapped(int index) async {
+    if (index == 2) {
+      _openUpload();
+      return;
+    }
+
+    setState(() => _selectedIndex = index);
+
+    if (index == 0) {
+      await context.read<FeedProvider>().fetchFeed(widget.userId);
+    }
+    if (index == 4) {
+      final uid = await getUserId();
+      if (uid != null) {
+        await context.read<VerificationProvider>().checkStatus(uid);
+      }
+      await context.read<FollowProvider>().loadCounts(widget.userId);
+      await context.read<PostProvider>().fetchUserPosts(widget.userId);
+    }
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    bool isFollowingTab = _selectedIndex == 1 ? true : false;
-
-    // Tạo _screens trong build() để đảm bảo mỗi lần rebuild là màn hình mới
-    final List<Widget> _screens = [
-      FeedScreen(userId: widget.userId), // Luôn tạo mới
-      SearchScreen(
-        userId: widget.userId,
-      ),
-      UploadPostScreen(),
-      WatchScreen(),
+  Widget build(BuildContext context) {
+    // rebuild list để WatchScreen nhận isActive mới
+    final screens = [
+      FeedScreen(userId: widget.userId),
+      SearchScreen(userId: widget.userId),
+      const SizedBox.shrink(),
+      WatchScreen(isActive: _selectedIndex == 3),
       ProfileScreen(userId: widget.userId),
     ];
 
     return Scaffold(
-      body: _screens[_selectedIndex], // Hiển thị màn hình tương ứng
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        currentIndex: _selectedIndex,
-        type: BottomNavigationBarType.fixed,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-              icon: Icon(FontAwesomeIcons.house), label: ""),
-          BottomNavigationBarItem(
-              icon: Icon(FontAwesomeIcons.magnifyingGlass), label: ""),
-          BottomNavigationBarItem(
-              icon: Icon(FontAwesomeIcons.plusCircle), label: ""),
-          BottomNavigationBarItem(
-              icon: Icon(FontAwesomeIcons.video), label: ""),
-          BottomNavigationBarItem(icon: Icon(FontAwesomeIcons.user), label: ""),
-        ],
+      body: IndexedStack(index: _selectedIndex, children: screens),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFE6E6E6), width: 1)),
+        ),
+        child: SafeArea(
+    top: false, child: SizedBox(
+          height: 60, // thử 52-60 tuỳ máy
+          child: BottomNavigationBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            showSelectedLabels: false,
+            showUnselectedLabels: false,
+            iconSize: 24,
+            selectedItemColor: Colors.black,
+            unselectedItemColor: Colors.black54,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(FontAwesomeIcons.house), label: ""),
+              BottomNavigationBarItem(icon: Icon(FontAwesomeIcons.magnifyingGlass), label: ""),
+              BottomNavigationBarItem(icon: Icon(FontAwesomeIcons.plusCircle), label: ""),
+              BottomNavigationBarItem(icon: Icon(FontAwesomeIcons.video), label: ""),
+              BottomNavigationBarItem(icon: Icon(FontAwesomeIcons.user), label: ""),
+            ],
+          ),
+        ),
       ),
+
+    )
     );
   }
 }
+

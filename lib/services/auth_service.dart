@@ -1,50 +1,63 @@
 import 'package:dio/dio.dart';
-import 'package:instagram/baseapi.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
-  final BaseApi _baseApi = BaseApi();
+  late final Dio _dio;
 
-  // 1. Đăng ký
+  AuthService() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: dotenv.env['BASE_URL'] ?? '',
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {"Content-Type": "application/json"},
+      ),
+    );
+  }
+
   Future<dynamic> register({
     required String email,
     required String password,
     required String username,
     required String fullname,
   }) async {
-    try {
-      final response = await _baseApi.dio.post("/auth/register", data: {
+    final response = await _dio.post(
+      "/auth/register",
+      data: {
         "email": email,
         "password": password,
         "username": username,
         "fullname": fullname,
-        // avatar, bio để rỗng như logic backend bạn gửi
-      });
-      return response.data;
-    } catch (e) {
-      throw e;
-    }
+      },
+    );
+    return response.data;
   }
 
-  // 2. Đăng nhập
   Future<dynamic> login(String email, String password) async {
-    try {
-      final response = await _baseApi.dio.post("/auth/login", data: {
-        "email": email,
-        "password": password,
-      });
-      // Backend trả về: { success: true, token: "...", userId: "..." }
-      return response.data;
-    } catch (e) {
-      throw e;
-    }
+    final response = await _dio.post(
+      "/auth/login",
+      data: {"email": email, "password": password},
+    );
+    return response.data;
   }
 
-  // 3. Quên mật khẩu
-  Future<void> forgotPassword(String email) async {
-    try {
-      await _baseApi.dio.post("/auth/forgot-password", data: {"email": email});
-    } catch (e) {
-      throw e;
-    }
+  Future<dynamic> forgotPassword({required String email}) async {
+    final response = await _dio.post(
+      "/auth/forgot-password",
+      data: {"email": email},
+    );
+    return response.data;
+  }
+
+  Future<dynamic> resetPassword({
+    required String email,
+    required String newPassword,
+    required String otp,
+  }) async {
+    final response = await _dio.post(
+      "/auth/reset-password",
+      data: {"email": email, "newPassword": newPassword, "otp": otp},
+    );
+    return response.data;
   }
 }

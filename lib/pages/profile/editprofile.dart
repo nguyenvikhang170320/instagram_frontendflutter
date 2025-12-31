@@ -7,6 +7,11 @@ import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toasty_box/toast_enums.dart';
 import 'package:toasty_box/toast_service.dart';
+import 'package:provider/provider.dart';
+import 'package:instagram/provider/auth_provider.dart';
+
+import '../../provider/profile_provider.dart';
+
 
 class EditProfileScreen extends StatefulWidget {
   @override
@@ -25,33 +30,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final uid = await getUserId();
+      if (!mounted || uid == null) return;
+
+      userId = uid;
+
+      // đảm bảo profile có data
+      await context.read<ProfileProvider>().fetchProfile(uid);
+
+      final u = context.read<ProfileProvider>().profile;
+      setState(() {
+        _usernameController.text = u.username;
+        _fullnameController.text = u.fullname;
+        _bioController.text = u.bio;
+        _avatarUrl = u.avatar;
+      });
+    });
+  }
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _fullnameController.dispose();
+    _bioController.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadUserData() async {
-    userId = await getUserId();
-    if (userId == null) return;
-
-    try {
-      Dio dio = Dio();
-      Response response =
-          await dio.get("${dotenv.env['BASE_URL']}/users/$userId");
-
-      if (response.statusCode == 200) {
-        var user = response.data; // Lấy dữ liệu từ API
-        print("User Data: $user");
-        setState(() {
-          _usernameController.text = user["username"] ?? null;
-          _fullnameController.text =
-              user["fullname"] ?? null; // Lấy fullname từ API
-          _bioController.text = user["bio"] ?? null;
-          _avatarUrl = user["avatar"];
-        });
-      }
-    } catch (e) {
-      print("Lỗi tải dữ liệu người dùng: $e");
-    }
-  }
 
   Future<void> _pickImage(ImageSource source) async {
     final ImagePicker picker = ImagePicker();
@@ -71,45 +75,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _updateProfile() async {
     if (userId == null) return;
-    try {
-      Dio dio = Dio();
-      FormData formData = FormData.fromMap({
-        "username": _usernameController.text,
-        "fullname": _fullnameController.text, // Gửi fullname lên API
-        "bio": _bioController.text.isNotEmpty ? _bioController.text : "",
 
-        if (_image != null)
-          "avatar":
-              await MultipartFile.fromFile(_image!.path, filename: "avatar"),
+    final ok = await context.read<ProfileProvider>().updateProfile(
+      userId: userId!,
+      username: _usernameController.text,
+      fullname: _fullnameController.text,
+      bio: _bioController.text.isNotEmpty ? _bioController.text : "",
+      avatarFile: _image,
+    );
+
+    if (!mounted) return;
+
+    if (ok) {
+      final newAvatar = context.read<ProfileProvider>().profile.avatar;
+      setState(() {
+        setState(() => _avatarUrl = context.read<ProfileProvider>().profile.avatar);
       });
 
-      Response response = await dio.put(
-          "${dotenv.env['BASE_URL']}/users/update/$userId",
-          data: formData);
-
-      if (response.statusCode == 200) {
-        String? newAvatarUrl = response.data["avatar"];
-        setState(() {
-          _avatarUrl = newAvatarUrl ?? _avatarUrl; // Giữ giá trị cũ nếu null
-        });
-        Navigator.pop(context, true);
-        ToastService.showSuccessToast(
-          context,
-          length: ToastLength.medium,
-          expandedHeight: 100,
-          message: "Cập nhật thành công",
-        );
-      }
-    } catch (e) {
+      Navigator.pop(context, true);
+      ToastService.showSuccessToast(
+        context,
+        length: ToastLength.medium,
+        expandedHeight: 100,
+        message: "Cập nhật thành công",
+      );
+    } else {
       ToastService.showErrorToast(
         context,
         length: ToastLength.medium,
         expandedHeight: 100,
-        message: "Lỗi cập nhật",
+        message: context.read<ProfileProvider>().error ?? "Lỗi cập nhật",
       );
-      print("Lỗi $e");
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -192,9 +191,178 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               onPressed: _updateProfile,
               child: Text("Lưu"),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => _showChangePasswordSheet(context),
+              child: const Text("Đổi mật khẩu"),
+            ),
           ],
         ),
       ),
     );
   }
+  void _showChangePasswordSheet(BuildContext context) {
+    final emailCtl = TextEditingController();
+    final otpCtl = TextEditingController();
+    final newPassCtl = TextEditingController();
+    bool obscure = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final auth = ctx.watch<AuthProvider>();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Đổi mật khẩu",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: emailCtl,
+                    decoration: const InputDecoration(labelText: "Email"),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: otpCtl,
+                          decoration: const InputDecoration(labelText: "OTP"),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: auth.isLoading
+                            ? null
+                            : () async {
+                          final otp = await ctx
+                              .read<AuthProvider>()
+                              .forgotPassword(email: emailCtl.text.trim());
+
+                          if (ctx.read<AuthProvider>().error != null) {
+                            ToastService.showErrorToast(
+                              ctx,
+                              length: ToastLength.medium,
+                              expandedHeight: 100,
+                              message:
+                              ctx.read<AuthProvider>().error ?? "Lỗi",
+                            );
+                            return;
+                          }
+
+                          // backend bạn đang trả otp để test
+                          if (otp != null && otp.isNotEmpty) {
+                            otpCtl.text = otp;
+                            ToastService.showSuccessToast(
+                              ctx,
+                              length: ToastLength.medium,
+                              expandedHeight: 100,
+                              message: "Đã gửi OTP (test: auto fill OTP)",
+                            );
+                          } else {
+                            ToastService.showSuccessToast(
+                              ctx,
+                              length: ToastLength.medium,
+                              expandedHeight: 100,
+                              message: "Đã gửi OTP về email",
+                            );
+                          }
+                        },
+                        child: auth.isLoading
+                            ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                            : const Text("Gửi OTP"),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: newPassCtl,
+                    obscureText: obscure, // dùng obscureText cho password [web:217]
+                    decoration: InputDecoration(
+                      labelText: "Mật khẩu mới",
+                      suffixIcon: IconButton(
+                        icon: Icon(obscure
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () =>
+                            setModalState(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+
+                  if (auth.error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      auth.error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: auth.isLoading
+                        ? null
+                        : () async {
+                      final ok = await ctx.read<AuthProvider>().resetPassword(
+                        email: emailCtl.text.trim(),
+                        newPassword: newPassCtl.text,
+                        otp: otpCtl.text.trim(),
+                      );
+
+                      if (!ok) {
+                        ToastService.showErrorToast(
+                          ctx,
+                          length: ToastLength.medium,
+                          expandedHeight: 100,
+                          message: ctx.read<AuthProvider>().error ?? "Lỗi",
+                        );
+                        return;
+                      }
+
+                      Navigator.pop(ctx);
+                      ToastService.showSuccessToast(
+                        context,
+                        length: ToastLength.medium,
+                        expandedHeight: 100,
+                        message: "Đổi mật khẩu thành công",
+                      );
+                    },
+                    child: auth.isLoading
+                        ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : const Text("Xác nhận đổi mật khẩu"),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
 }

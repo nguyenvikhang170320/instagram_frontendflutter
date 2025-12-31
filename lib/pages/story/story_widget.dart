@@ -54,7 +54,7 @@ class _StoryWidgetState extends State<StoryWidget> {
     bool hasUserStory = stories.any((story) => story['userId'] == userId);
 
     return SizedBox(
-      height: 120,
+      height: 100,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: stories.length + 1, // Luôn có nút "Tin của bạn"

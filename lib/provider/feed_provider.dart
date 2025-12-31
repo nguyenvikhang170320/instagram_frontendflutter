@@ -1,77 +1,70 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:instagram/sharepreference/sharepre.dart';
 
 class FeedProvider extends ChangeNotifier {
   String userId = "";
-  List<dynamic> posts = [];
-  bool isLoading = true;
+  List<Map<String, dynamic>> posts = [];
+  bool isLoading = false;
 
   FeedProvider() {
     _initUserId();
   }
 
-  /// Hàm khởi tạo userId từ SharedPreferences
   Future<void> _initUserId() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    userId = prefs.getString("userId") ?? "";
-    print("🟢 [FeedProvider] Lấy userId từ SharedPreferences: $userId");
-
+    final uid = await getUserId();        // String?
+    userId = uid ?? "";                   // convert to non-null
     if (userId.isNotEmpty) {
-      await fetchFeed(); // Gọi API khi có userId
+      await fetchFeed(userId);
     } else {
-      isLoading = false; // Không có userId => không cần loading
+      posts = [];
+      isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Hàm lấy dữ liệu bài viết
-  Future<void> fetchFeed() async {
-    if (userId.isEmpty) {
-      print("⚠️ userId chưa được khởi tạo, không gọi API.");
-      return;
-    }
-
-    final apiUrl = "${dotenv.env['BASE_URL']}/profile/feed/$userId";
+  Future<void> fetchFeed(String uid) async {
+    final apiUrl = "${dotenv.env['BASE_URL']}/profile/feed/$uid";
     isLoading = true;
-    notifyListeners(); // Bắt đầu tải dữ liệu
+    notifyListeners();
 
     try {
-      print("📡 Fetching feed from: $apiUrl");
-
-      final response = await http
-          .get(Uri.parse(apiUrl))
+      final res = await http.get(Uri.parse(apiUrl))
           .timeout(const Duration(seconds: 10));
 
-      print("API Response Code: ${response.statusCode}");
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        posts = data["posts"] ?? [];
-        print("✅ Posts fetched: ${posts.length}");
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        posts = List<Map<String, dynamic>>.from(data["posts"] ?? []);
       } else {
-        print("❌ Lỗi khi lấy dữ liệu: ${response.statusCode}");
+        posts = [];
       }
-    } catch (e) {
-      print("❌ Lỗi kết nối API: $e");
+    } catch (_) {
+      posts = [];
     }
 
-    isLoading = false;
-    notifyListeners(); // Cập nhật UI sau khi tải xong
-  }
-
-  /// Xóa bài viết khi đăng xuất
-  void clearFeed() {
-    posts = [];
     isLoading = false;
     notifyListeners();
   }
 
+  Future<void> refreshFeed() async {
+    if (userId.isEmpty) {
+      await _initUserId();
+      return;
+    }
+    await fetchFeed(userId);
+  }
+
   Future<void> updateUserId(String newUserId) async {
     userId = newUserId;
-    notifyListeners(); // Cập nhật UI ngay khi userId thay đổi
-    await fetchFeed(); // Gọi API lấy bài đăng mới
+    await fetchFeed(userId);
+  }
+
+  void clearFeed() {
+    userId = "";
+    posts = [];
+    isLoading = false;
+    notifyListeners();
   }
 }

@@ -1,46 +1,39 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+
+import '../../provider/follow_provider.dart';
+import '../../sharepreference/sharepre.dart';
 
 class FollowScreen extends StatefulWidget {
   final String userId;
-  final bool isFollowingTab; // true: Đang theo dõi, false: Người theo dõi
-
-  FollowScreen({required this.userId, required this.isFollowingTab});
+  final bool isFollowingTab;
+  const FollowScreen({super.key, required this.userId, required this.isFollowingTab});
 
   @override
-  _FollowScreenState createState() => _FollowScreenState();
+  State<FollowScreen> createState() => _FollowScreenState();
 }
 
 class _FollowScreenState extends State<FollowScreen> {
-  List<Map<String, dynamic>> users = []; // Danh sách users
-  bool isLoading = true;
-
   @override
   void initState() {
     super.initState();
-    fetchFollowData();
-  }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
 
-  Future<void> fetchFollowData() async {
-    try {
-      final url = widget.isFollowingTab
-          ? "${dotenv.env['BASE_URL']}/follow/following/${widget.userId}"
-          : "${dotenv.env['BASE_URL']}/follow/followers/${widget.userId}";
-
-      final response = await Dio().get(url);
-      if (response.statusCode == 200) {
-        setState(() {
-          users = List<Map<String, dynamic>>.from(response.data);
-          isLoading = false;
-        });
+      final followProvider = context.read<FollowProvider>();
+      final myId = await getUserId();
+      if (myId != null) {
+        await followProvider.loadFollowingIds(myId); // để có nút Follow/Following đúng
       }
-    } catch (e) {
-      print("❌ Lỗi khi tải dữ liệu: $e");
-      setState(() {
-        isLoading = false;
-      });
-    }
+
+      if (widget.isFollowingTab) {
+        await followProvider.loadFollowingList(widget.userId);
+      } else {
+        await followProvider.loadFollowersList(widget.userId);
+      }
+    });
   }
 
   @override
@@ -49,31 +42,52 @@ class _FollowScreenState extends State<FollowScreen> {
       appBar: AppBar(
         title: Text(widget.isFollowingTab ? "Đang theo dõi" : "Người theo dõi"),
       ),
-      body: isLoading
-          ? Center(
-              child:
-                  CircularProgressIndicator()) // Hiển thị vòng xoay khi đang tải
-          : (users.isEmpty
-              ? Center(child: Text("Dữ liệu trống")) // Khi không có dữ liệu
-              : ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    final bool isFollowing = user["isFollowing"] ?? true;
+      body: Consumer<FollowProvider>(
+        builder: (context, fp, _) {
+          if (fp.isLoading) return const Center(child: CircularProgressIndicator());
 
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage:
-                            user["avatar"] != null && user["avatar"].isNotEmpty
-                                ? NetworkImage(user["avatar"])
-                                : AssetImage("assets/images/user.jpg")
-                                    as ImageProvider,
-                      ),
-                      title: Text(user["username"]),
-                      subtitle: Text(user["fullname"] ?? ""),
-                    );
-                  },
-                )),
+          final list = widget.isFollowingTab ? fp.following : fp.followers;
+          if (list.isEmpty) return const Center(child: Text("Dữ liệu trống"));
+
+          return ListView.builder(
+            itemCount: list.length,
+            itemBuilder: (_, index) {
+              final u = list[index];
+              final uid = u["userId"]?.toString() ?? "";
+              final isFollowing = fp.isFollowing(uid);
+
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: (u["avatar"] ?? "").toString().isNotEmpty
+                      ? NetworkImage(u["avatar"])
+                      : const AssetImage("assets/images/user.jpg") as ImageProvider,
+                ),
+                title: Text(u["username"] ?? ""),
+                subtitle: Text(u["fullname"] ?? ""),
+                trailing: uid == widget.userId
+                    ? null
+                    : SizedBox(
+                  height: 32,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (isFollowing) {
+                        fp.unfollow(uid);
+                      } else {
+                        fp.follow(uid);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isFollowing ? Colors.grey.shade200 : Colors.blue,
+                      foregroundColor: isFollowing ? Colors.black : Colors.white,
+                    ),
+                    child: Text(isFollowing ? "Đang theo dõi" : "Theo dõi"),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

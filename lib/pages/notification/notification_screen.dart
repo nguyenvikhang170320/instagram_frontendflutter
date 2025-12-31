@@ -1,54 +1,63 @@
 import 'package:flutter/material.dart';
-import 'package:instagram/provider/notification_provider.dart';
-import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:provider/provider.dart';
+import 'package:instagram/provider/notification_provider.dart';
 
 class NotificationScreen extends StatefulWidget {
+  const NotificationScreen({super.key});
+
   @override
-  _NotificationScreenState createState() => _NotificationScreenState();
+  State<NotificationScreen> createState() => _NotificationScreenState();
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserIdAndFetchNotifications();
-  }
 
-  void _loadUserIdAndFetchNotifications() async {
-    String? userId = await getUserId(); // Lấy userId từ SharedPreferences
-
-    if (userId != null) {
-      final notificationProvider =
-          Provider.of<NotificationProvider>(context, listen: false);
-      await notificationProvider.fetchNotifications(userId);
-      await notificationProvider.fetchUnreadNotifications(userId);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await context.read<NotificationProvider>().fetchNotifications();
+      // nếu muốn mark all read thì tự làm trong provider (loop markRead), hoặc bỏ
+    }); // postFrameCallback pattern [web:384]
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Thông báo")),
+      appBar: AppBar(
+        title: const Text("Thông báo"),
+      ),
       body: Consumer<NotificationProvider>(
-        builder: (context, notificationProvider, child) {
-          return ListView.builder(
-            itemCount: notificationProvider.notifications.length,
-            itemBuilder: (context, index) {
-              final notification = notificationProvider.notifications[index];
+        builder: (context, np, _) {
+          if (np.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (np.error != null) {
+            return Center(child: Text(np.error!));
+          }
+          if (np.notifications.isEmpty) {
+            return const Center(child: Text("Chưa có thông báo"));
+          }
 
-              String userName = notification.userName;
-              String notificationText = getNotificationText(notification.type);
+          return ListView.builder(
+            itemCount: np.notifications.length,
+            itemBuilder: (_, index) {
+              final n = np.notifications[index];
+              final text = _getNotificationText(n.type);
 
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: notification.avatar.isNotEmpty
-                      ? NetworkImage(notification.avatar)
-                      : null,
-                  child:
-                      notification.avatar.isEmpty ? Icon(Icons.person) : null,
+                  backgroundImage:
+                  n.avatar.isNotEmpty ? NetworkImage(n.avatar) : null,
+                  child: n.avatar.isEmpty ? const Icon(Icons.person) : null,
                 ),
-                title: Text("${notification.userName} $notificationText"),
+                title: Text("${n.userName} $text"),
+                onTap: () async {
+                  // mark read 1 cái (nếu chưa đọc)
+                  if (n.seen == false) {
+                    await context.read<NotificationProvider>().markRead(n.id);
+                  }
+                },
               );
             },
           );
@@ -57,7 +66,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  String getNotificationText(String type) {
+  String _getNotificationText(String type) {
     switch (type) {
       case 'like':
         return 'đã thích ảnh của bạn';
@@ -69,6 +78,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return 'đã chia sẻ một bài viết mới';
       case 'save':
         return 'đã lưu một bài viết mới';
+      case 'follow':
+        return 'đã theo dõi bạn';
       default:
         return '';
     }

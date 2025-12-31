@@ -1,152 +1,145 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+
 import 'package:instagram/pages/userprofilescreen.dart';
 import 'package:instagram/sharepreference/sharepre.dart';
+import 'package:instagram/provider/follow_provider.dart';
+import 'package:instagram/provider/search_provider.dart';
+
+import '../provider/feed_provider.dart';
 
 class SearchScreen extends StatefulWidget {
-  final String userId;
-  SearchScreen({required this.userId});
+  final String userId; // current user id
+  const SearchScreen({super.key, required this.userId});
+
   @override
-  _SearchScreenState createState() => _SearchScreenState();
+  State<SearchScreen> createState() => _SearchScreenState();
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  TextEditingController searchController = TextEditingController();
-  List users = [];
-  List filteredUsers = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    fetchUsers();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final uid = await getUserId();
+      if (!mounted || uid == null) return;
+
+      // load list user search (có isFollowing từ backend)
+      await context.read<SearchProvider>().load(uid);
+
+      // load followingIds để button follow/following luôn đúng (source of truth)
+      await context.read<FollowProvider>().loadFollowingIds(uid);
+    }); // addPostFrameCallback dùng khi cần async + provider notify [web:384]
   }
 
-  // Gọi API để lấy danh sách người dùng
-  Future<void> fetchUsers() async {
-    final String? currentUserId = await getUserId();
-    final response = await http
-        .get(Uri.parse("${dotenv.env['BASE_URL']}/users/all/$currentUserId"));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (!mounted) return;
-      setState(() {
-        users = data;
-        filteredUsers = users;
-      });
-    } else {
-      print("❌ Lỗi lấy danh sách người dùng");
-    }
-  }
-
-  Future<void> toggleFollow(String targetUserId, bool follow) async {
-    final String? currentUserId = await getUserId();
-    final url =
-        "${dotenv.env['BASE_URL']}/follow"; // POST cho Follow, DELETE cho Unfollow
-
-    final response = await (follow
-        ? http.post(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode(
-                {"followerId": currentUserId, "followingId": targetUserId}),
-          )
-        : http.delete(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode(
-                {"followerId": currentUserId, "followingId": targetUserId}),
-          ));
-
-    if (response.statusCode == 200) {
-      setState(() {
-        for (var user in users) {
-          if (user["userId"] == targetUserId) {
-            user["isFollowing"] = follow;
-            break;
-          }
-        }
-      });
-    } else {
-      print("❌ Lỗi khi cập nhật follow/unfollow");
-    }
-  }
-
-  // Hàm tìm kiếm theo username hoặc fullname
-  void filterSearchResults(String query) {
-    setState(() {
-      filteredUsers = users.where((user) {
-        final username = user["username"].toLowerCase();
-        final fullname = user["fullname"].toLowerCase();
-        return username.contains(query.toLowerCase()) ||
-            fullname.contains(query.toLowerCase());
-      }).toList();
-    });
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final sp = context.watch<SearchProvider>();
+    final fp = context.watch<FollowProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: TextField(
-          controller: searchController,
-          onChanged: filterSearchResults,
-          decoration: InputDecoration(
+          controller: _searchController,
+          onChanged: (text) => context.read<SearchProvider>().search(text),
+          decoration: const InputDecoration(
             hintText: "Tìm kiếm...",
             border: InputBorder.none,
             prefixIcon: Icon(Icons.search),
           ),
         ),
       ),
-      body: ListView.builder(
-        itemCount: filteredUsers.length,
+      body: sp.loading
+          ? const Center(child: CircularProgressIndicator())
+          : (sp.error != null)
+          ? Center(child: Text(sp.error!))
+          : ListView.builder(
+        itemCount: sp.users.length,
         itemBuilder: (context, index) {
-          final user = filteredUsers[index];
+          final user = sp.users[index];
+          final targetId = (user["userId"] ?? "").toString();
+
+          final avatar = (user["avatar"] ?? "").toString();
+          final username = (user["username"] ?? "").toString();
+          final fullname = (user["fullname"] ?? "").toString();
+          final bio = (user["bio"] ?? "").toString();
+
+          // Ưu tiên trạng thái follow từ FollowProvider (để đồng bộ toàn app)
+          final isFollowing = fp.isFollowing(targetId);
+
           return ListTile(
             onTap: () async {
-              // Khi bấm vào user, mở màn hình UserProfileScreen
-              final String? currentUserId = await getUserId();
+              final currentUserId = await getUserId();
+              if (!context.mounted || currentUserId == null) return;
+
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => UserProfileScreen(
-                    currentUserId: currentUserId!,
-                    profileUserId: user["userId"]!,
-                    username: user["username"]!,
-                    fullname: user["fullname"]!,
-                    bio: user["bio"]!, // Thêm API lấy dữ liệu bio nếu có
-                    avatar: user["avatar"]!,
+                  builder: (_) => UserProfileScreen(
+                    currentUserId: currentUserId,
+                    profileUserId: targetId,
+                    username: username,
+                    fullname: fullname,
+                    bio: bio,
+                    avatar: avatar,
                   ),
                 ),
               );
             },
             leading: CircleAvatar(
-              backgroundImage: user["avatar"].isNotEmpty
-                  ? NetworkImage(user["avatar"])
-                  : AssetImage("assets/images/user.jpg") as ImageProvider,
+              backgroundImage: avatar.isNotEmpty
+                  ? NetworkImage(avatar)
+                  : const AssetImage("assets/images/user.jpg")
+              as ImageProvider,
             ),
-            title: Text(user["username"],
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(user["fullname"]),
-            trailing: user["isFollowing"]
-                ? ElevatedButton(
-                    onPressed: () => toggleFollow(user["userId"], false),
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                    child: Text(
-                      "Đang theo dõi",
-                      style: TextStyle(color: Colors.black),
-                    ),
-                  )
-                : ElevatedButton(
-                    onPressed: () => toggleFollow(user["userId"], true),
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                    child:
-                        Text("Theo dõi", style: TextStyle(color: Colors.white)),
-                  ),
+            title: Text(username,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(fullname),
+            trailing: (targetId == widget.userId)
+                ? null
+                : SizedBox(
+              height: 32,
+              child: ElevatedButton(
+                onPressed: () async {
+                  bool ok = false;
+
+                  if (isFollowing) {
+                    ok = await fp.unfollow(targetId);
+                    if (ok) sp.setFollowing(targetId, false);
+                  } else {
+                    ok = await fp.follow(targetId);
+                    if (ok) sp.setFollowing(targetId, true);
+                  }
+
+                  if (!context.mounted) return;
+
+                  final uid = await getUserId();
+                  if (!context.mounted || uid == null) return;
+
+                  await context.read<FeedProvider>().fetchFeed(uid);
+
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isFollowing
+                      ? Colors.grey.shade200
+                      : Colors.blue,
+                  foregroundColor: isFollowing
+                      ? Colors.black
+                      : Colors.white,
+                ),
+                child:
+                Text(isFollowing ? "Đang theo dõi" : "Theo dõi"),
+              ),
+            ),
           );
         },
       ),
