@@ -2,44 +2,45 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatModel {
   final String chatId;
-  final List<String> members;
+  final String lastMessage;
+  final DateTime updatedAt;
+
+  // Thông tin người chat cùng (Backend đã gộp vào object otherUser)
   final String otherUserId;
-  final String otherUserName; // Thêm trường này
-  final String senderName; // Thêm trường này
-  final String? lastMessage;
-  final DateTime? updatedAt;
+  final String otherUserName;
+  final String otherUserAvatar;
 
   ChatModel({
     required this.chatId,
-    required this.members,
+    required this.lastMessage,
+    required this.updatedAt,
     required this.otherUserId,
-    required this.otherUserName, // Thêm trường này
-    required this.senderName, // Thêm trường này
-    this.lastMessage,
-    this.updatedAt,
+    required this.otherUserName,
+    required this.otherUserAvatar,
   });
 
-  factory ChatModel.fromMap(
-      String id, Map<String, dynamic> data, String currentUserId) {
-    List<String> members = List<String>.from(data['members']);
-    String otherId = members.firstWhere((id) => id != currentUserId);
+  factory ChatModel.fromJson(Map<String, dynamic> json) {
+    // Lấy object otherUser từ JSON backend gửi về
+    final otherUser = json['otherUser'] ?? {};
+
     return ChatModel(
-      chatId: id,
-      members: members,
-      otherUserId: otherId,
-      otherUserName:
-          data['otherUserName'] ?? "User $otherId", // Thêm trường này
-      senderName: data['senderName'] ?? 'Người dùng', // Thêm trường này
-      lastMessage: data['lastMessage'],
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      chatId: json['chatId'] ?? '',
+      lastMessage: json['lastMessage'] ?? '',
+
+      // Parse thời gian update
+      updatedAt: _parseTimestamp(json['updatedAt']),
+
+      // Map thông tin người kia
+      otherUserId: otherUser['userId'] ?? '',
+      otherUserName: otherUser['username'] ?? 'Người dùng',
+      otherUserAvatar: otherUser['avatar'] ?? '',
     );
   }
 
-  String get lastMessageTimeFormatted {
-    if (updatedAt == null) return "";
-    return "${updatedAt!.day.toString().padLeft(2, '0')}/"
-        "${updatedAt!.month.toString().padLeft(2, '0')}/"
-        "${updatedAt!.year} lúc ${updatedAt!.hour.toString().padLeft(2, '0')}:"
-        "${updatedAt!.minute.toString().padLeft(2, '0')}";
+  static DateTime _parseTimestamp(dynamic ts) {
+    if (ts == null) return DateTime.now();
+    if (ts is String) return DateTime.tryParse(ts) ?? DateTime.now();
+    if (ts is Timestamp) return ts.toDate();
+    return DateTime.now();
   }
 }

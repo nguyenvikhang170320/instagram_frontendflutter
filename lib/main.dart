@@ -84,9 +84,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         // 5. Profile
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        // Story
+        ChangeNotifierProvider(create: (_) => StoryProvider()),
 
 
-        // ❌ Đã BỎ NotificationProvider theo yêu cầu của bạn (chỉ dùng Service)
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

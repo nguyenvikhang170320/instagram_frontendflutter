@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:instagram/pages/story/story_feed_widget.dart';
 import 'package:provider/provider.dart';
 
 import 'package:instagram/provider/feed_provider.dart';
@@ -10,7 +11,7 @@ import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:instagram/pages/home/posthome_widget.dart';
 import 'package:instagram/pages/notification/notification_screen.dart';
 import 'package:instagram/pages/chat/chat_list_screen.dart';
-import 'package:instagram/pages/story/story_widget.dart';
+import 'package:instagram/pages/story/story_feed_widget.dart';
 
 import '../../provider/save_provider.dart';
 
@@ -116,7 +117,7 @@ class _FeedScreenState extends State<FeedScreen> {
       body: Column(
         children: [
           // Story: tạm giữ widget bạn đang có
-           StoryWidget(),
+           StoryFeedWidget(),
 
           Expanded(
             child: Consumer<FeedProvider>(

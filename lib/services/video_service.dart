@@ -4,35 +4,23 @@ import 'dart:io';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:instagram/sharepreference/sharepre.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+
 class VideoService {
   static String get _base => '${dotenv.env['BASE_URL']}/video';
 
-  /// GET /video/videos (feed)
-  static Future<List<Map<String, dynamic>>> fetchAllVideos() async {
-    final res = await http.get(
-      Uri.parse('$_base/videos'),
-      headers: {"Content-Type": "application/json"},
-    );
-
-    if (res.statusCode == 200) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final videos = body['videos'];
-      if (body['success'] == true && videos is List) {
-        return videos.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      }
-      return [];
+  /// ✅ Lấy video theo UserId (Nếu backend cần verify thì thêm header)
+  static Future<List<Map<String, dynamic>>> fetchUserVideos(String userId, {String? token}) async {
+    final headers = {"Content-Type": "application/json"};
+    // Nếu backend yêu cầu đăng nhập mới được xem video profile:
+    if (token != null) {
+      headers["Authorization"] = "Bearer $token";
     }
-    throw Exception('Fetch all videos failed: ${res.statusCode} - ${res.body}');
-  }
 
-  /// GET /video/videos/:userId (profile videos)
-  static Future<List<Map<String, dynamic>>> fetchUserVideos(String userId) async {
     final res = await http.get(
       Uri.parse('$_base/videos/$userId'),
-      headers: {"Content-Type": "application/json"},
+      headers: headers,
     );
 
     if (res.statusCode == 200) {
@@ -43,21 +31,22 @@ class VideoService {
       }
       return [];
     }
-    throw Exception('Fetch user videos failed: ${res.statusCode} - ${res.body}');
+    throw Exception('Fetch user videos failed: ${res.statusCode}');
   }
 
-  /// POST /video/upload (multipart)
+  /// ✅ Đăng video mới (Nhận token trực tiếp từ Provider)
   static Future<Map<String, dynamic>> uploadVideo({
     required String filePath,
+    required String token, // <--- Yêu cầu truyền token từ ngoài vào
     String caption = "",
   }) async {
-    final token = await getToken();
-    if (token == null) throw Exception("Missing token");
-
     final req = http.MultipartRequest('POST', Uri.parse('$_base/upload'));
+
+    // Gắn Token vào Header
     req.headers['Authorization'] = 'Bearer $token';
     req.fields['caption'] = caption;
 
+    // Xử lý File
     final mimeType = lookupMimeType(filePath) ?? 'video/mp4';
     final parts = mimeType.split('/');
 
@@ -73,30 +62,34 @@ class VideoService {
     final streamed = await req.send();
     final respStr = await streamed.stream.bytesToString();
 
-    if (streamed.statusCode == 200) {
+    if (streamed.statusCode == 200 || streamed.statusCode == 201) {
       return Map<String, dynamic>.from(jsonDecode(respStr) as Map);
     }
+
     Map<String, dynamic>? errJson;
     try { errJson = jsonDecode(respStr) as Map<String, dynamic>; } catch (_) {}
-
-    final msg = (errJson?['message'] ?? respStr).toString();
+    final msg = (errJson?['message'] ?? "Lỗi Upload ($streamed.statusCode)").toString();
     throw Exception(msg);
   }
 
-  /// DELETE /video/delete/:videoId
-  static Future<void> deleteVideo(String videoId) async {
-    final token = await getToken();
-    if (token == null) throw Exception("Missing token");
-
+  /// ✅ Xóa video (Nhận token trực tiếp từ Provider)
+  static Future<void> deleteVideo({
+    required String videoId,
+    required String token, // <--- Yêu cầu truyền token từ ngoài vào
+  }) async {
     final res = await http.delete(
       Uri.parse('$_base/delete/$videoId'),
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+        "Authorization": "Bearer $token", // Gửi token để verify quyền chủ sở hữu
       },
     );
 
     if (res.statusCode == 200) return;
-    throw Exception('Delete video failed: ${res.statusCode} - ${res.body}');
+
+    Map<String, dynamic>? errJson;
+    try { errJson = jsonDecode(res.body) as Map<String, dynamic>; } catch (_) {}
+    final msg = (errJson?['message'] ?? "Lỗi Xóa video").toString();
+    throw Exception(msg);
   }
 }

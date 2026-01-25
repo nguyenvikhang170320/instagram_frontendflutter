@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:instagram/pages/chat/chat_details_screen.dart';
 import 'package:instagram/sharepreference/sharepre.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String currentUserId;
@@ -37,49 +38,74 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _handleStartChat() async {
+    // 1. Lấy User ID hiện tại
     String? currentUserId = await getUserId();
-    print("UserId: $currentUserId");
 
-    if (currentUserId == null) {
+    // 2. Lấy Token xác thực từ Firebase Auth
+    User? firebaseUser = FirebaseAuth.instance.currentUser;
+
+    if (currentUserId == null || firebaseUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không tìm thấy tài khoản hiện tại')),
+        const SnackBar(content: Text('Vui lòng đăng nhập lại để tiếp tục.')),
       );
       return;
     }
 
-    final response = await http.post(
-      Uri.parse('${dotenv.env['BASE_URL']}/chats'), // Hoặc localhost tương ứng
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'senderId': currentUserId,
-        'receiverId': widget.profileUserId,
-      }),
-    );
+    // Lấy token chuỗi
+    String? token = await firebaseUser.getIdToken(true);
 
-    print('🔁 Status: ${response.statusCode}');
-    print('📦 Body: ${response.body}');
+    print("🛠️ DEBUG START CHAT:");
+    print(" - Sender: $currentUserId");
+    print(" - Receiver: ${widget.profileUserId}");
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      final chatId = data['chatId'];
-
-      if (chatId == null) {
-        print('❌ chatId is null từ response!');
-        return;
-      }
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChatDetailScreen(
-            chatId: chatId,
-            currentUserId: currentUserId,
-            otherUserId: widget.profileUserId,
-          ),
-        ),
+    try {
+      final response = await http.post(
+        Uri.parse('${dotenv.env['BASE_URL']}/chats'),
+        headers: {
+          'Content-Type': 'application/json',
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          // 👇 QUAN TRỌNG: Phải đổi 'userId' thành 'receiverId' để khớp với Backend
+          'receiverId': widget.profileUserId
+        }),
       );
-    } else {
-      print('❌ Lỗi từ server: ${response.body}');
+
+      print('🔁 Status: ${response.statusCode}');
+      print('📦 Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        // Backend trả về object có chứa chatId
+        String? chatId = data['chatId'];
+
+        if (chatId != null) {
+          // Chuyển sang màn hình nhắn tin
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatDetailScreen(
+                chatId: chatId,
+                currentUserId: currentUserId,
+                otherUserId: widget.profileUserId,
+              ),
+            ),
+          );
+        } else {
+          print("❌ Lỗi: Backend không trả về chatId");
+        }
+      } else {
+        print('❌ Lỗi từ server: ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: ${response.body}')),
+        );
+      }
+    } catch (e) {
+      print("❌ Lỗi kết nối: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi kết nối server')),
+      );
     }
   }
 

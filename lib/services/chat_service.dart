@@ -1,48 +1,79 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'package:instagram/model/chat_model.dart';
-import 'package:instagram/model/message_model.dart';
+import '../model/chat_model.dart';
+import '../model/message_model.dart';
 
 class ChatService {
-  /// Lấy danh sách các cuộc chat của user
-  Future<List<ChatModel>> getChats(String userId) async {
+
+
+  // 1. Lấy danh sách cuộc trò chuyện (Gọi API Backend)
+  Future<List<ChatModel>> getChats(String token) async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('chats')
-          .where('members', arrayContains: userId)
-          .orderBy('updatedAt', descending: true)
-          .get();
+      final response = await http.get(
+        Uri.parse('${dotenv.env['BASE_URL']}/chats'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-      final chats = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return ChatModel.fromMap(doc.id, data, userId);
-      }).toList();
-
-      return chats;
-    } catch (e, stackTrace) {
-      print('🔥 Lỗi khi tải chat: $e');
-      print('📌 StackTrace: $stackTrace');
-      throw Exception('Lỗi khi tải danh sách chat: $e');
+      if (response.statusCode == 200) {
+        List<dynamic> data = jsonDecode(response.body);
+        // Map dữ liệu JSON từ server vào Model
+        return data.map((json) => ChatModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Lỗi tải chats: ${response.body}');
+      }
+    } catch (e) {
+      print('🔥 Lỗi Service getChats: $e');
+      return []; // Trả về rỗng nếu lỗi để app không crash
     }
   }
 
-  /// Lấy danh sách tin nhắn trong 1 cuộc chat
-  Future<List<MessageModel>> getMessages(String chatId) async {
+  // 2. Lấy danh sách tin nhắn của 1 chat (Gọi API Backend)
+  Future<List<MessageModel>> getMessages(String token, String chatId) async {
     try {
-      final res = await http.get(
-        Uri.parse('${dotenv.env['BASE_URL']}/chats/$chatId/messages'),
+      // URL đúng theo Backend: /api/messages/:chatId
+      final response = await http.get(
+        Uri.parse('${dotenv.env['BASE_URL']}/messages/$chatId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        print("chat service lấy danh sách tin nhắn: $data");
-        return (data as List).map((e) => MessageModel.fromJson(e)).toList();
+
+      if (response.statusCode == 200) {
+        List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => MessageModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Lỗi tải tin nhắn: ${response.body}');
       }
-      throw Exception('Lỗi khi tải tin nhắn');
     } catch (e) {
-      print("Error fetching messages: $e");
-      throw Exception('Error fetching messages: $e');
+      print("🔥 Lỗi Service getMessages: $e");
+      return [];
+    }
+  }
+
+  // 3. Gửi tin nhắn (Cần thêm hàm này)
+  Future<bool> sendMessage(String token, String chatId, String text) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${dotenv.env['BASE_URL']}/messages/send'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          "chatId": chatId,
+          "text": text,
+        }),
+      );
+
+      return response.statusCode == 201; // 201 là Created
+    } catch (e) {
+      print("🔥 Lỗi Service sendMessage: $e");
+      return false;
     }
   }
 }

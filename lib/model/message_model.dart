@@ -2,66 +2,65 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MessageModel {
   final String id;
+  final String chatId;    // ✅ Cần thêm cái này
   final String senderId;
-  final String receiverId;
-  final String content;
+  final String text;      // ✅ Backend trả về 'text', không phải 'content'
+  final String type;      // text, image, video (mặc định 'text')
+  final DateTime createdAt;
+
+  // Các trường mở rộng (Optional - Backend chưa có nhưng cứ để chờ nâng cấp)
   final String? mediaUrl;
-  final String status; // sent, delivered, seen
-  final String type; // text, image, video
-  final String senderName;
-  final DateTime timestamp;
+  final String status;    // sent, seen
 
   MessageModel({
     required this.id,
+    required this.chatId,
     required this.senderId,
-    required this.senderName,
-    required this.receiverId,
-    required this.content,
+    required this.text,
+    required this.createdAt,
+    this.type = 'text',
     this.mediaUrl,
-    required this.status,
-    required this.type,
-    required this.timestamp,
+    this.status = 'sent',
   });
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     return MessageModel(
-      id: json['_id'] ?? json['id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '', // Backend Mongo/Node thường trả về _id
+      chatId: json['chatId'] ?? '',
       senderId: json['senderId'] ?? '',
-      senderName: json['senderName'] ?? '',
-      receiverId: json['receiverId'] ?? '',
-      content: json['content'] ?? '',
+      text: json['text'] ?? json['content'] ?? '', // Fallback nếu bạn đổi ý bên backend
+
+      // Timestamp từ Node.js thường là String ISO
+      createdAt: _parseTimestamp(json['createdAt']),
+
+      type: json['type'] ?? 'text',
       mediaUrl: json['mediaUrl'],
       status: json['status'] ?? 'sent',
-      type: json['type'] ?? 'text',
-      timestamp: _parseTimestamp(json['createdAt']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'chatId': chatId,
       'senderId': senderId,
-      'senderName': senderName,
-      'receiverId': receiverId,
-      'content': content,
+      'text': text,
+      'type': type,
       'mediaUrl': mediaUrl,
       'status': status,
-      'type': type,
-      'createdAt': timestamp.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 
+  // Hàm xử lý thời gian đa năng (String ISO, Timestamp, Date...)
   static DateTime _parseTimestamp(dynamic ts) {
     if (ts == null) return DateTime.now();
+
+    // Node.js trả về chuỗi ISO 8601 (ví dụ: "2023-10-01T12:00:00Z")
     if (ts is String) return DateTime.tryParse(ts) ?? DateTime.now();
+
+    if (ts is Timestamp) return ts.toDate();
     if (ts is DateTime) return ts;
-    if (ts is Timestamp)
-      return ts.toDate(); // Fix Firestore Timestamp to DateTime
-    if (ts is Map && ts.containsKey('_seconds')) {
-      return DateTime.fromMillisecondsSinceEpoch(ts['_seconds'] * 1000);
-    }
+
     return DateTime.now();
   }
-
-  // Convert timestamp to local time
-  DateTime get localTimestamp => timestamp.toLocal();
 }

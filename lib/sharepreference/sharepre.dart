@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:instagram/provider/watch_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -46,6 +47,7 @@ Future<void> logout(BuildContext context) async {
   // 3) clear providers (tuỳ app bạn)
   if (context.mounted) {
     context.read<FeedProvider>().clearFeed();
+    context.read<WatchProvider>().clear();
   }
 
   // 4) go login

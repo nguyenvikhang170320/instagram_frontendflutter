@@ -15,19 +15,11 @@ class ChatBubble extends StatelessWidget {
     final align = isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final radius = BorderRadius.circular(12);
     String formattedTime =
-        DateFormat('dd/MM/yyyy HH:mm').format(message.localTimestamp);
+        DateFormat('dd/MM/yyyy HH:mm').format(message.createdAt);
 
     return Column(
       crossAxisAlignment: align,
       children: [
-        if (!isMe)
-          Padding(
-            padding: const EdgeInsets.only(left: 12.0),
-            child: Text(
-              message.senderName,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-          ),
         // PHẦN NỘI DUNG TIN NHẮN
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -51,7 +43,7 @@ class ChatBubble extends StatelessWidget {
 
   Widget _buildMessageContent() {
     if (message.type == 'text') {
-      return Text(message.content);
+      return Text(message.text);
     } else if (message.type == 'image') {
       return Image.network(
         message.mediaUrl ?? '',
