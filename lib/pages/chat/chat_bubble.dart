@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:instagram/model/message_model.dart';
 import 'package:intl/intl.dart';
@@ -43,90 +45,48 @@ class ChatBubble extends StatelessWidget {
 
   Widget _buildMessageContent() {
     if (message.type == 'text') {
-      return Text(message.text);
-    } else if (message.type == 'image') {
-      return Image.network(
-        message.mediaUrl ?? '',
-        width: 200,
-        height: 200,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.broken_image),
-      );
-    } else if (message.type == 'video') {
-      return _VideoPlayerWidget(videoUrl: message.mediaUrl ?? '');
-    } else {
-      return const Text("Không hỗ trợ nội dung này");
+      return Text(message.text ?? '');
     }
-  }
-}
 
-class _VideoPlayerWidget extends StatefulWidget {
-  final String videoUrl;
-
-  const _VideoPlayerWidget({required this.videoUrl});
-
-  @override
-  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
-}
-
-class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
-  late VideoPlayerController _controller;
-  bool _isPlaying = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.network(widget.videoUrl)
-      ..initialize().then((_) {
-        setState(() {
-          _controller.setLooping(true); // Optional: Loop video
-        });
-      });
-  }
-
-  // Play or Pause the video
-  void _togglePlayPause() {
-    setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause(); // Pause video
-      } else {
-        _controller.play(); // Play video
+    if (message.type == 'image') {
+      // ✅ Có URL từ backend
+      if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) {
+        return Image.network(
+          message.mediaUrl!,
+          width: 200,
+          height: 200,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return const SizedBox(
+              width: 200,
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (_, __, ___) =>
+          const Icon(Icons.broken_image),
+        );
       }
-      _isPlaying = _controller.value.isPlaying;
-    });
+
+      // ✅ Ảnh local (optimistic UI)
+      if (message.localImagePath != null) {
+        return Image.file(
+          File(message.localImagePath!),
+          width: 200,
+          height: 200,
+          fit: BoxFit.cover,
+        );
+      }
+      print('TYPE: ${message.type}');
+      print('MEDIA URL: ${message.mediaUrl}');
+      print('LOCAL PATH: ${message.localImagePath}');
+      // ❌ fallback
+      return const Icon(Icons.image_not_supported);
+    }
+
+    return const Text("Không hỗ trợ nội dung này");
   }
 
-  @override
-  void dispose() {
-    _controller.dispose(); // Dispose the controller to avoid memory leaks
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _controller.value.isInitialized
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
-              ),
-              // Add play/pause button below video
-              IconButton(
-                icon: Icon(
-                  _isPlaying ? Icons.pause : Icons.play_arrow,
-                  size: 30,
-                  color: Colors.blue,
-                ),
-                onPressed: _togglePlayPause,
-              ),
-            ],
-          )
-        : const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator()),
-          );
-  }
 }
+

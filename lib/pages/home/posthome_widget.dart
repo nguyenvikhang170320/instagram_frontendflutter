@@ -11,7 +11,7 @@ import 'package:toasty_box/toast_service.dart';
 
 import 'package:instagram/pages/comment/comment.dart';
 import 'package:instagram/pages/report/report_modal.dart';
-import 'package:instagram/pages/report/report_service.dart';
+import 'package:instagram/services/report_service.dart';
 import 'package:instagram/sharepreference/sharepre.dart';
 
 import '../../provider/like_provider.dart';
@@ -49,8 +49,6 @@ class _PostWidgetState extends State<PostWidget> {
     Future.microtask(() {
       if (!mounted) return;
       context.read<LikeProvider>().fetchLikeCount(postId);
-      context.read<CommentProvider>().fetchCommentCount(postId); // << comment provider
-      // SaveProvider: thường fetchSavedPosts ở app init, khỏi gọi mỗi item
     });
   }
 
@@ -112,27 +110,8 @@ class _PostWidgetState extends State<PostWidget> {
     showModalBottomSheet(
       context: context,
       builder: (modalContext) => ReportModal(
-        onReport: (reason) async {
-          final success = await ReportService.reportPost(postId, userId, reason);
-          if (modalContext.mounted) Navigator.of(modalContext).pop();
-
-          if (!context.mounted) return;
-          if (success) {
-            ToastService.showSuccessToast(
-              context,
-              length: ToastLength.medium,
-              expandedHeight: 100,
-              message: "Báo cáo bài viết thành công!",
-            );
-          } else {
-            ToastService.showErrorToast(
-              context,
-              length: ToastLength.medium,
-              expandedHeight: 100,
-              message: "Báo cáo lỗi!",
-            );
-          }
-        },
+          targetId: postId,
+          targetType: "post",
       ),
     );
   }
@@ -144,9 +123,6 @@ class _PostWidgetState extends State<PostWidget> {
 
     final isSaved = context.select<SaveProvider, bool>((p) => p.isSaved(postId));
 
-    final commentCount = context.select<CommentProvider, int>(
-          (p) => p.commentCountOf(postId),
-    );
 
     final imageUrl = (widget.post['imageUrl'] ?? '').toString();
     final caption = (widget.post['caption'] ?? '').toString();
@@ -215,16 +191,8 @@ class _PostWidgetState extends State<PostWidget> {
                       ),
                     );
 
-                    // nếu có comment mới thì refresh count
-                    if (changed == true && context.mounted) {
-                      await context.read<CommentProvider>().fetchCommentCount(postId);
-                    }
-                  },
-                ),
 
-                Text(
-                  '$commentCount bình luận',
-                  style: const TextStyle(color: Colors.black),
+                  },
                 ),
 
                 // SHARE

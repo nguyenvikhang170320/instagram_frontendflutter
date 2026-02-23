@@ -1,109 +1,47 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../services/comment_service.dart';
 
 class CommentProvider extends ChangeNotifier {
-  bool loadingCount = false;
-  bool loadingList = false;
-  String? error;
 
-  final Map<String, int> commentCountMap = {}; // postId -> count
-  final Map<String, List<Map<String, dynamic>>> commentsMap = {}; // postId -> list
+  final Map<String, List<Map<String, dynamic>>> _commentsMap = {};
 
-  int commentCountOf(String postId) => commentCountMap[postId] ?? 0;
-  List<Map<String, dynamic>> commentsOf(String postId) => commentsMap[postId] ?? [];
+  List<Map<String, dynamic>> commentsOf(String postId) =>
+      _commentsMap[postId] ?? [];
 
-  Future<void> fetchCommentCount(String postId) async {
-    loadingCount = true;
-    error = null;
-    notifyListeners();
-
-    try {
-      final count = await CommentService.fetchCommentCount(postId);
-      commentCountMap[postId] = count;
-    } catch (e) {
-      error = e.toString();
-    } finally {
-      loadingCount = false;
-      notifyListeners();
-    }
-  }
 
   Future<void> fetchComments(String postId) async {
-    loadingList = true;
-    error = null;
+    final list = await CommentService.fetchComments(postId);
+    _commentsMap[postId] = list;
     notifyListeners();
-
-    try {
-      final list = await CommentService.fetchComments(postId);
-      commentsMap[postId] = list;
-      // đồng bộ count luôn (đỡ gọi count api nếu muốn)
-      commentCountMap[postId] = list.length;
-    } catch (e) {
-      error = e.toString();
-    } finally {
-      loadingList = false;
-      notifyListeners();
-    }
   }
 
-  Future<bool> addComment({
+
+  Future<void> addComment({
     required String postId,
-    required String commentText,
+    required String userId,
+    required String text
   }) async {
-    error = null;
 
-    try {
-      final newComment = await CommentService.addComment(
-        postId: postId,
-        commentText: commentText,
-      );
+    await CommentService.addComment(
+      postId: postId,
+      userId: userId,
+      commentText: text,
+    );
 
-      final current = commentsMap[postId] ?? [];
-      commentsMap[postId] = [newComment, ...current];
-      commentCountMap[postId] = (commentCountMap[postId] ?? current.length) + 1;
-
-      notifyListeners();
-      return true;
-    } catch (e) {
-      error = e.toString();
-      notifyListeners();
-      return false;
-    }
+    await fetchComments(postId); // reload
   }
 
-  Future<bool> deleteComment({
+
+  Future<void> deleteComment({
     required String postId,
     required String commentId,
   }) async {
-    error = null;
 
-    // optimistic remove
-    final prevList = List<Map<String, dynamic>>.from(commentsMap[postId] ?? []);
-    final prevCount = commentCountOf(postId);
+    await CommentService.deleteComment(
+      postId: postId,
+      commentId: commentId,
+    );
 
-    commentsMap[postId] = prevList.where((e) => e['commentId'] != commentId).toList();
-    commentCountMap[postId] = (prevCount - 1) < 0 ? 0 : (prevCount - 1);
-    notifyListeners();
-
-    try {
-      await CommentService.deleteComment(commentId: commentId);
-      return true;
-    } catch (e) {
-      // rollback
-      commentsMap[postId] = prevList;
-      commentCountMap[postId] = prevCount;
-      error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  void clear() {
-    error = null;
-    loadingCount = false;
-    loadingList = false;
-    commentCountMap.clear();
-    commentsMap.clear();
-    notifyListeners();
+    await fetchComments(postId);
   }
 }

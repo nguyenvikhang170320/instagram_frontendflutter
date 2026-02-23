@@ -3,7 +3,7 @@ import 'package:instagram/model/chat_model.dart';
 import 'package:instagram/pages/chat/chat_details_screen.dart';
 import 'package:instagram/pages/chat/chat_tile.dart';
 import 'package:instagram/services/chat_service.dart';
-import 'package:instagram/sharepreference/sharepre.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatListScreen extends StatefulWidget {
   final String currentUserId;
@@ -23,15 +23,19 @@ class _ChatListScreenState extends State<ChatListScreen> {
     _loadChats();
   }
 
-  // Hàm tải danh sách cuộc trò chuyện
+
+
   void _loadChats() async {
-    String? userId = await getUserId();
-    if (userId != null) {
-      setState(() {
-        _chatListFuture = ChatService().getChats(userId);
-      });
-    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final token = await user.getIdToken(true);
+
+    setState(() {
+      _chatListFuture = ChatService().getChats(token!); // ✅ token
+    });
   }
+
 
   // Hàm làm mới danh sách cuộc trò chuyện
   Future<void> _refreshChats() async {
@@ -82,18 +86,19 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 return ChatTile(
                   chat: chat,
                   onTap: () {
-                    // Khi người dùng bấm vào cuộc trò chuyện
+                    final uid = FirebaseAuth.instance.currentUser!.uid;
+
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatDetailScreen(
                           chatId: chat.chatId,
-                          currentUserId: widget.currentUserId,
+                          currentUserId: uid, // ✅ UID Firebase
                           otherUserId: chat.otherUserId,
                         ),
                       ),
-                    ).then((_) =>
-                        _loadChats()); // làm mới danh sách chat sau khi quay lại
+                    );
+                    // làm mới danh sách chat sau khi quay lại
                   },
                 );
               },

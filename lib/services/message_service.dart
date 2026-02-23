@@ -2,72 +2,92 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:instagram/model/message_model.dart';
-
+import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 class MessageService {
   // Gửi tin nhắn mới
-  static Future<MessageModel> sendMessageAndReturn({
+  static Future<MessageModel> sendText({
     required String chatId,
-    required String senderId,
-    required String receiverId,
-    required String content,
-    String type = 'text',
-    String? mediaUrl,
+    required String text,
+    required String token,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('${dotenv.env['BASE_URL']}/chats/$chatId/messages'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'senderId': senderId,
-          'receiverId': receiverId,
-          'content': content,
-          'type': type,
-          'mediaUrl': mediaUrl,
-        }),
-      );
+    final res = await http.post(
+      Uri.parse('${dotenv.env['BASE_URL']}/messages/send-text'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'chatId': chatId,
+        'text': text,
+      }),
+    );
 
-      if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        return MessageModel.fromJson(data);
-      } else {
-        throw Exception('Lỗi khi gửi tin nhắn');
-      }
-    } catch (e) {
-      print("Error sending message: $e");
-      throw Exception('Lỗi khi gửi tin nhắn');
+    if (res.statusCode == 201) {
+      return MessageModel.fromJson(jsonDecode(res.body));
+    } else {
+      throw Exception('Send text failed');
     }
   }
+
 
   /// 🆕 Upload media (ảnh/video) lên backend
-  static Future<MessageModel?> uploadMediaMessage({
+  static Future<MessageModel> sendMedia({
     required String chatId,
-    required String senderId,
-    required String receiverId,
-    required File file,
-    required String type, // 'image' hoặc 'video'
+    required File imageFile,
+    required String token,
   }) async {
-    final uri = Uri.parse('${dotenv.env['BASE_URL']}/chats/$chatId/messages');
-    final request = http.MultipartRequest('POST', uri)
-      ..fields['senderId'] = senderId
-      ..fields['receiverId'] = receiverId
-      ..fields['type'] = type
-      ..files.add(await http.MultipartFile.fromPath('file', file.path));
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${dotenv.env['BASE_URL']}/messages/send-media'),
+    );
 
-    try {
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields['chatId'] = chatId;
 
-      if (response.statusCode == 201) {
-        final data = json.decode(response.body);
-        return MessageModel.fromJson(data);
-      } else {
-        print('❌ Upload thất bại: ${response.statusCode} - ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      print('❌ Lỗi khi upload media: $e');
-      return null;
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        "image",
+        imageFile.path,
+        filename: p.basename(imageFile.path),
+        contentType: () {
+          final mime = lookupMimeType(imageFile.path) ?? "image/jpeg";
+          final parts = mime.split("/");
+          return MediaType(parts[0], parts[1]);
+        }(),
+      ),
+    );
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    if (response.statusCode == 201) {
+      return MessageModel.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Upload media failed');
     }
   }
+
+  static Future<List<MessageModel>> fetchMessages({
+    required String chatId,
+    required String token,
+  }) async {
+    final res = await http.get(
+      Uri.parse('${dotenv.env['BASE_URL']}/messages/$chatId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => MessageModel.fromJson(e)).toList();
+    } else {
+      throw Exception('Fetch messages failed');
+    }
+  }
+
+
 }

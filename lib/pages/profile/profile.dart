@@ -17,6 +17,7 @@ import 'package:instagram/provider/watch_provider.dart';
 import 'package:instagram/provider/verification_provider.dart';
 
 import '../../model/user.dart';
+import '../report/ReportHistoryScreen.dart';
 import '../story/create_story_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -132,6 +133,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               },
             ),
+          IconButton(
+            icon: const Icon(Icons.report, color: Colors.black),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ReportHistoryScreen(),
+                ),
+              );
+            },
+          ),
+          SizedBox(width: 10,),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Đăng xuất',
